@@ -4,9 +4,9 @@ from importlib import import_module
 from app.config import STAGES,MAX_BYTES
 from app.errors import DomainError
 from app.normalize import serial
-from app.pipeline import run
+from app.pipeline import board, run
 from app import store
-from app.web import view
+from app.web import holds_export, view, view_holds
 def create_app():
     app=Flask(__name__);app.config["MAX_CONTENT_LENGTH"]=MAX_BYTES
     app.json.ensure_ascii=False
@@ -20,6 +20,10 @@ def create_app():
     def home(): return redirect("/m/1")
     @app.get("/m/<int:stage>")
     def page(stage): return view(stage)
+    @app.get("/m/holds")
+    def holds_page(): return view_holds()
+    @app.get("/api/holds.csv")
+    def holds_csv(): return holds_export()
     @app.post("/api/runs")
     def start():
         if request.files:
@@ -55,5 +59,7 @@ def create_app():
             writer.writerow([result["manifest"]["run_id"],row["line"],row["key"],row["code"],json.dumps(row,ensure_ascii=False)])
         return Response("\ufeff"+stream.getvalue(),content_type="text/csv; charset=utf-8",headers={"Content-Disposition":"attachment; filename=evidence.csv"})
     for n,name in enumerate(STAGES,1): app.register_blueprint(import_module(f"app.modules.m{n}_{name}.handler").bp)
+    from app.modules.m8_holds.handler import bp as holds_bp
+    app.register_blueprint(holds_bp)
     return app
 app=create_app()
